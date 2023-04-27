@@ -1,0 +1,24 @@
+bd parname
+num 0:IlkStat
+num 1:Interlock
+num 2:Control
+num 3:RTerm
+num 4:Alarm
+num 5:ClrAlarm
+
+Ch parname list
+num 0:VSet
+num 1:VMon   
+num 2:ISet
+num 3:ImonRange ??
+num 4:IMonL    ??
+num 5:IMonH    ??
+num 6:MaxV,      softmax,
+num 7:RUp
+num 8:RDwn
+num 9:Trip
+num 10:PDwn ,    bool,   0:kill, 1:ramp
+num 11:Polarity, bool, 0:positive,1: negative
+num 12:ChStatus, unsigned int
+num 13:Pw ,       bool, 0:off, 1:On
+

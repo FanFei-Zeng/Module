@@ -1,0 +1,12 @@
+type N1470
+link USB_VCP
+ComPort  ttyUSB0
+BoundRate 115200
+BoardNum  6
+ChainAddNum 0 1 2 3 4 5
+MWPC0_Pos_ch  300
+MWPC0_Neg_ch  301
+MWPC1_Pos_ch  302
+MWPC1_Neg_ch  303
+DSSD_Pos_ch   0
+DSSD_Neg_ch   1

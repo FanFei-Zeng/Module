@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="icon" type="image/gif" href="/icon.gif">
+<title> CAEN N1470 Control </title>
+<style type="text/css">
+    table{
+        background-color:#66FFFF;
+        text-align:center;
+        margin:1%;
+    }
+    tr{
+        border-top:10px;
+        border-bottom:10px;
+        text-align:center;
+        vertical-align:middle;
+        position:relative;
+        margin:1%;
+    }
+    input{
+        min:0;
+        -moz-appearance:textfield;
+    }
+    th{
+		height:30px;
+		font-Size:20px;
+        text-align:center;
+        margin:1%;
+        position:relative;
+    }
+	input[type="button"]{
+		height:25px;
+		font-Size:20px;
+        text-align:center;
+        margin:1%;
+    }
+    td{
+        border-top:10px;
+        border-bottom:10px;
+        text-align:center;
+        margin:1%;
+        position:relative;
+    }
+    .StatusOK{
+        text-align:center;
+        background-color:#11FF11;
+    }
+    .StatusOff{
+        text-align:center;
+        background-color:#FFFF00;
+    }
+    .StatusError{
+        text-align:center;
+        background-color:#FF3300;
+    }
+</style>
+
+<script src="./chart.js" type="text/javascript"></script>
+<script type="text/javascript">
+    var interval_id;
+    var fail_count=0;
+	var Alarm_Sign=false;
+    var monitor_time=1200*24;
+    var myChart;
+    var mylabels=new Array();
+    var mydata_MWPC0_Pos=new Array();
+    var mydata_MWPC0_Neg=new Array();
+    var mydata_MWPC1_Pos=new Array();
+    var mydata_MWPC1_Neg=new Array();
+    var mydata_DSSD_Pos=new Array();
+    var mydata_DSSD_Neg=new Array();
+
+    window.onload=function(){
+        var ctx = document.getElementById("MyChart").getContext("2d");
+        myChart = new Chart(ctx, {
+           type: 'line',
+           data: {
+               labels: mylabels,
+               datasets: [
+                   {
+                   label: "MWPC0_Pos",
+                   showLine:true,
+                   pointRadius: 0,
+                   lineTension: 0,
+                   duration:0,
+                   borderColor: "rgba(0,0,255,1)",
+                   data:mydata_MWPC0_Pos
+                   },
+                   {
+                   label: "MWPC0_Neg",
+                   showLine:true,
+                   pointRadius: 0,
+                   lineTension: 0,
+                   duration:0,
+                   borderColor: "rgba(222.184,135,1)",
+                   data:mydata_MWPC0_Neg
+                   },
+                   {
+                   label: "MWPC1_Pos",
+                   showLine:true,
+                   pointRadius: 0,
+                   lineTension: 0,
+                   duration:0,
+                   borderColor: "rgba(127,255,0,1)",
+                   data:mydata_MWPC1_Pos
+                   },
+                   {
+                   label: "MWPC1_Neg",
+                   showLine:true,
+                   pointRadius: 0,
+                   lineTension: 0,
+                   duration:0,
+                   borderColor: "rgba(148,0,221,1)",
+                   data:mydata_MWPC1_Neg
+                   },
+                   {
+                   label: "DSSD_Pos",
+                   showLine:true,
+                   pointRadius: 0,
+                   lineTension: 0,
+                   duration:0,
+                   borderColor: "rgba(220,20,60,1)",
+                   data:mydata_DSSD_Pos
+                   },
+                   {
+                   label: "DSSD_Neg",
+                   showLine:true,
+                   pointRadius: 0,
+                   lineTension: 0,
+                   duration:0,
+                   borderColor: "rgba(0,255,255,1)",
+                   data:mydata_DSSD_Neg
+                   }
+               ]
+          },
+          options:{
+animation:false
+
+
+          }
+   }
+);
+
+RefreshWeb();
+       interval_id=setInterval("RefreshWeb()",1000);
+}
+
+function ClearAlarm()
+{
+	Alarm_Sign=false;
+	document.getElementById("Alarm").setAttribute("class","StatusOK");
+}
+
+function LockScreen(value)
+{
+    var disable;
+    if(value == "UnLock")
+    {
+        document.getElementById("ButtonLock").value="Lock";
+        disable=false;
+    }
+    else
+    {
+        document.getElementById("ButtonLock").value="UnLock";
+        disable=true;
+    }
+    for (var i = 0; i < document.getElementsByTagName("input").length; i++)
+        document.getElementsByTagName("input")[i].readOnly=disable;
+    for (var i = 0; i < document.getElementsByTagName("select").length; i++)
+        document.getElementsByTagName("select")[i].disabled=disable;
+
+}
+
+function SubmitData(id,value) {
+    var req=new XMLHttpRequest();
+    req.onreadystatechange=function(){
+        if(this.readyState == 4 && this.status == 200) {
+            fail_count=0;
+            var obj=JSON.parse(this.responseText);
+            for(var key in obj)
+            {
+                document.getElementById(key).value=obj[key];
+                if(key == "ButtonLock")
+                    LockScreen(obj[key]);
+            }
+        }
+        else if(this.readyState == 4 && this.status != 200) {
+            fail_count++;
+            if(fail_count>5)
+            {
+                alert("connect to serve error!!");
+                window.clearInterval(interval_id);
+            }
+        }
+    }
+    req.open("POST","/",true);
+    req.send(id+"="+value);
+}
+
+function RefreshWeb() {
+    var req=new XMLHttpRequest();
+
+    var bd;
+    var ch;
+    var vmon;
+    req.onreadystatechange=function(){
+        if(this.readyState == 4 && this.status == 200) {
+            fail_count=0;
+            var obj=JSON.parse(this.responseText);
+            for(var key in obj)
+            {
+                switch(key)
+                {
+                    case "curr_time":
+                        document.getElementById("curr_time").innerHTML=obj[key];
+                        if(mylabels.length > monitor_time)
+                        {
+                            mylabels.shift();
+                            mydata_MWPC0_Pos.shift();
+                            mydata_MWPC0_Neg.shift();
+                            mydata_MWPC1_Pos.shift();
+                            mydata_MWPC1_Neg.shift();
+                            mydata_DSSD_Pos.shift();
+                            mydata_DSSD_Neg.shift();
+                        }
+                        mylabels.push(obj[key].substring(11,19));
+                        break;
+                    case "ButtonLock":
+                        LockScreen(obj[key]);
+                        break;
+                    case "Mon_Var":
+                        mydata_MWPC0_Pos.push(parseFloat(obj[key].MWPC0_Pos));
+                        mydata_MWPC0_Neg.push(parseFloat(obj[key].MWPC0_Neg));
+                        mydata_MWPC1_Pos.push(parseFloat(obj[key].MWPC1_Pos));
+                        mydata_MWPC1_Neg.push(parseFloat(obj[key].MWPC1_Neg));
+                        mydata_DSSD_Pos.push(parseFloat(obj[key].DSSD_Pos));
+                        mydata_DSSD_Neg.push(parseFloat(obj[key].DSSD_Neg));
+                        myChart.update();
+                        break;
+                    case "HVParam":
+                        var length=obj[key].length;
+                        for(var i=0;i<length;i++)
+                        {
+                            if(document.getElementById(obj[key][i].ChID) == null)
+                            {
+                                var ret=document.getElementById("N1470table");
+                                var trnode=ret.insertRow(document.getElementById("N1470table").rows.length);
+                                trnode.setAttribute("id",obj[key][i].ChID);
+                                var str="<td> <input type=\"text\" style=\"width:6em\" id=\""+obj[key][i].ChID+".Name\" OnChange=\"SubmitData(this.id,this.value)\" value=\""+obj[key][i].Name+"\"/> </td>";
+                                bd=Math.floor(obj[key][i].ChID/100);
+                                ch=obj[key][i].ChID%100;
+                                str=str+"<td id=\""+obj[key][i].ChID+".BdNum\">"+bd+" </td>";
+                                str=str+"<td id=\""+obj[key][i].ChID+".ChNum\">"+ch+" </td>";
+                                str=str+"<td id=\""+obj[key][i].ChID+".Pol\">"+obj[key][i].Pol+"</td>";
+                                if(obj[key][i].Pw=="On")
+                                    str=str+"<td> <select id=\""+obj[key][i].ChID+".Pw\" OnChange=\"SubmitData(this.id,this.value)\"> <option value=\"On\" selected=\"selected\">On</option> <option value=\"Off\">Off</option> </select> </td>";
+                                else
+                                    str=str+"<td> <select id=\""+obj[key][i].ChID+".Pw\" OnChange=\"SubmitData(this.id,this.value)\"> <option value=\"On\" >On</option> <option value=\"Off\" selected=\"selected\">Off</option> </select> </td>";
+								if((obj[key][i].ChStatus == "On") ||(obj[key][i].ChStatus == "Up") ||(obj[key][i].ChStatus == "Down" ))
+                                    str=str+"<td  id=\""+obj[key][i].ChID+".ChStatus\" class=\"StatusOK\">"+obj[key][i].ChStatus+"</td>";
+                                else if(obj[key][i].ChStatus == "Off")
+                                    str=str+"<td  id=\""+obj[key][i].ChID+".ChStatus\" class=\"StatusOff\">"+obj[key][i].ChStatus+"</td>";
+                                else
+								{
+                                    str=str+"<td  id=\""+obj[key][i].ChID+".ChStatus\" class=\"StatusError\">"+obj[key][i].ChStatus+"</td>";
+									if(obj[key][i].Pw == "On")
+										Alarm_Sign=true;
+								}
+
+                                str=str+"<td> <input type=\"number\" style=\"width:5em\" id=\""+obj[key][i].ChID+".VSet\" OnChange=\"SubmitData(this.id,this.value)\" value=\""+obj[key][i].VSet+"\"/> </td>";
+                                str=str+"<td> <input type=\"number\" style=\"width:5em\" id=\""+obj[key][i].ChID+".ISet\" OnChange=\"SubmitData(this.id,this.value)\" value=\""+obj[key][i].ISet+"\"/> </td>";
+                                str=str+"<td id=\""+obj[key][i].ChID+".VMon\">" +obj[key][i].VMon+"</td>";
+                                str=str+"<td id=\""+obj[key][i].ChID+".IMon\">" +obj[key][i].IMon+"</td>";
+
+
+                                                               str=str+"<td> <input type=\"number\" style=\"width:5em\" id=\""+obj[key][i].ChID+".SVMax\" OnChange=\"SubmitData(this.id,this.value)\" value=\""+obj[key][i].SVMax+"\"/> </td>";
+                                str=str+"<td> <input type=\"number\" style=\"width:4em\" id=\""+obj[key][i].ChID+".Trip\" OnChange=\"SubmitData(this.id,this.value)\"  value=\""+obj[key][i].Trip+"\"/> </td>";
+                                str=str+"<td> <input type=\"number\" style=\"width:4em\" id=\""+obj[key][i].ChID+".RUp\" OnChange=\"SubmitData(this.id,this.value)\"   value=\""+obj[key][i].RUp+"\"/> </td>";
+                                str=str+"<td> <input type=\"number\" style=\"width:4em\" id=\""+obj[key][i].ChID+".RDwn\" OnChange=\"SubmitData(this.id,this.value)\"  value=\""+obj[key][i].RDwn+"\"/> </td>";
+                                if(obj[key][i].PDwn=="Kill")
+                                    str=str+"<td> <select id=\""+obj[key][i].ChID+".PDwn\" OnChange=\"SubmitData(this.id,this.value)\"> <option value=\"Kill\" selected=\"selected\">Kill</option> <option value=\"Ramp\">Ramp</option> </select> </td>";
+                                else
+                                    str=str+"<td> <select id=\""+obj[key][i].ChID+".PDwn\" OnChange=\"SubmitData(this.id,this.value)\"> <option value=\"Kill\"> kill</option> <option value=\"Ramp\" selected=\"selected\">Ramp</option> </select> </td>";
+                                trnode.innerHTML=str;
+                            }
+                            else
+                            {
+                                var ele=document.activeElement.id;
+                                document.getElementById(obj[key][i].ChID+".Name").Value=obj[key][i].Name;
+                                document.getElementById(obj[key][i].ChID+".VMon").innerHTML=obj[key][i].VMon;
+                                document.getElementById(obj[key][i].ChID+".IMon").innerHTML=obj[key][i].IMon;
+                                document.getElementById(obj[key][i].ChID+".ChStatus").innerHTML=obj[key][i].ChStatus;
+                                if((obj[key][i].ChStatus == "On") ||(obj[key][i].ChStatus == "Up") ||(obj[key][i].ChStatus == "Down" ))
+                                    document.getElementById(obj[key][i].ChID+".ChStatus").setAttribute("class","StatusOK");
+                                else if(obj[key][i].ChStatus == "Off")
+                                    document.getElementById(obj[key][i].ChID+".ChStatus").setAttribute("class","StatusOff");
+                                else
+								{
+                                    document.getElementById(obj[key][i].ChID+".ChStatus").setAttribute("class","StatusError");
+									if(obj[key][i].Pw == "On")
+										Alarm_Sign=true;
+								}
+                                if(ele != obj[key][i].ChID+".VSet")
+                                    document.getElementById(obj[key][i].ChID+".VSet").value = obj[key][i].VSet;
+                                if(ele != obj[key][i].ChID+".Name")
+                                    document.getElementById(obj[key][i].ChID+".Name").value = obj[key][i].Name;
+                                if(ele != obj[key][i].ChID+".ISet")
+                                    document.getElementById(obj[key][i].ChID+".ISet").value = obj[key][i].ISet;
+                                if(ele != obj[key][i].ChID+".SVMax")
+                                    document.getElementById(obj[key][i].ChID+".SVMax").value = obj[key][i].SVMax;
+                                if(ele != obj[key][i].ChID+".RUp")
+                                    document.getElementById(obj[key][i].ChID+".RUp").value = obj[key][i].RUp;
+                                if(ele != obj[key][i].ChID+".RDwn")
+                                    document.getElementById(obj[key][i].ChID+".RDwn").value = obj[key][i].RDwn;
+                                if(ele != obj[key][i].ChID+".Trip")
+                                    document.getElementById(obj[key][i].ChID+".Trip").value = obj[key][i].Trip;
+                                if(ele != obj[key][i].ChID+".PDwn")
+                                    document.getElementById(obj[key][i].ChID+".PDwn").value=obj[key][i].PDwn;
+                                if(ele != obj[key][i].ChID+".Pw")
+                                    document.getElementById(obj[key][i].ChID+".Pw").value=obj[key][i].Pw;
+                            }
+                        }//end one ch info update
+                }
+            }//end all json decode
+			if(Alarm_Sign == true)
+				document.getElementById("Alarm").setAttribute("class","StatusError");
+        }
+        else if(this.readyState == 4 && this.status != 200) {
+            fail_count++;
+            if(fail_count>5)
+            {
+                alert("connect to serve error!!");
+                window.clearInterval(interval_id);
+            }
+        }
+    }
+    req.open("POST","/",true);
+    req.send("refresh=0");
+}
+</script>
+</head>
+
+<body>
+    <table id="N1470table">
+        <tr style="height:40px;">
+            <th class="title1" colspan="4" >HV Control</th>
+            <th colspan="5" id="curr_time">2020/12/10 10:38:19 </th>
+            <th colspan="2"><input type="button"  id="Alarm" class="StatusOK" readonly value="Alarm"></th>
+            <th colspan="2"><input type="button"  id="Buttonclear" value="ClearAlarm" onclick="ClearAlarm()"></th>
+            <th colspan="2"><input type="button"  id="ButtonLock" value="Lock" onclick="SubmitData(this.id,this.value)"></th>
+        </tr>
+        <tr>
+            <td>&nbsp Name</td>
+            <td>&nbsp Bd</td>
+            <td>&nbspCh</td>
+            <td>Pol</td>
+            <td>On/off</td>
+            <td>ChStatus</td>
+            <td>VSet(V)</td>
+            <td>ISet(uA)</td>
+            <td>VMon(V)</td>
+            <td>IMon(uA)</td>
+            <td>SVMax</td>
+            <td>Trip(s)</td>
+            <td>RUp(V/s)</td>
+            <td>RDwn(V/s)</td>
+            <td>PDwn</td>
+        </tr>
+    </table>
+    <div style="position:relative; height:300px; width:1000px; top:180px; left:0px; margin-buttom;50px;"  >
+    <h3 style="text-align:center">HV monitor </h3>
+    <canvas id="MyChart">
+    Your browser does not support the canvas element.
+    </canvas>
+	<br/>
+    <h5 style="text-align:right">software&copyIMP </h5>
+    </div>
+
+</body>
+</html>
